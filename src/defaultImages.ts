@@ -85,5 +85,89 @@ export const DEFAULT_IMAGES: ImageOption[] = [
     src: 'https://ac35844.webp.li/liexpress_A_3-year-old_Chinese_girl_standing_indoors_in_front_o_0e4d3ddc-044c-49c6-9cdc-33c78fdecc21.png',
     label: '室内 2',
   },
+  {
+    id: 'image-1',
+    src: 'https://ac35844.webp.li/image%20(1).jpg',
+    label: '图片 1',
+  },
+  {
+    id: 'image-2',
+    src: 'https://ac35844.webp.li/image%20(2).jpg',
+    label: '图片 2',
+  },
+  {
+    id: 'image-3',
+    src: 'https://ac35844.webp.li/image%20(3).jpg',
+    label: '图片 3',
+  },
+  {
+    id: 'image-5',
+    src: 'https://ac35844.webp.li/image%20(5).jpg',
+    label: '图片 5',
+  },
+  {
+    id: 'image-7',
+    src: 'https://ac35844.webp.li/image%20(7).jpg',
+    label: '图片 7',
+  },
+  {
+    id: 'image-4',
+    src: 'https://ac35844.webp.li/image%20(4).jpg',
+    label: '图片 4',
+  },
+  {
+    id: 'image-8',
+    src: 'https://ac35844.webp.li/image%20(8).jpg',
+    label: '图片 8',
+  },
+  {
+    id: 'image-10',
+    src: 'https://ac35844.webp.li/image%20(10).jpg',
+    label: '图片 10',
+  },
+  {
+    id: 'image-9',
+    src: 'https://ac35844.webp.li/image%20(9).jpg',
+    label: '图片 9',
+  },
+  {
+    id: 'image-11',
+    src: 'https://ac35844.webp.li/image%20(11).jpg',
+    label: '图片 11',
+  },
+  {
+    id: 'image-6',
+    src: 'https://ac35844.webp.li/image%20(6).jpg',
+    label: '图片 6',
+  },
+  {
+    id: 'image-13',
+    src: 'https://ac35844.webp.li/image%20(13).jpg',
+    label: '图片 13',
+  },
+  {
+    id: 'image-12',
+    src: 'https://ac35844.webp.li/image%20(12).jpg',
+    label: '图片 12',
+  },
+  {
+    id: 'image-15',
+    src: 'https://ac35844.webp.li/image%20(15).jpg',
+    label: '图片 15',
+  },
+  {
+    id: 'image-14',
+    src: 'https://ac35844.webp.li/image%20(14).jpg',
+    label: '图片 14',
+  },
+  {
+    id: 'image-17',
+    src: 'https://ac35844.webp.li/image%20(17).jpg',
+    label: '图片 17',
+  },
+  {
+    id: 'image-16',
+    src: 'https://ac35844.webp.li/image%20(16).jpg',
+    label: '图片 16',
+  },
 ]
-
