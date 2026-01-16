@@ -24,54 +24,61 @@ function pieceShapeLabel(shape: PieceShape) {
 
 function jigsawPath(edges: { top: EdgeType; right: EdgeType; bottom: EdgeType; left: EdgeType }) {
   const size = 100
-  const a = 35
-  const b = 65
-  const knob = 18
+  const inset1 = 28
+  const inset2 = 36
+  const inset3 = 64
+  const inset4 = 72
+  const depth = 18
+  const shoulder = 6
+  const handle = 2
 
-  const topDy = edges.top === 'flat' ? 0 : edges.top === 'tab' ? -knob : knob
-  const rightDx = edges.right === 'flat' ? 0 : edges.right === 'tab' ? knob : -knob
-  const bottomDy = edges.bottom === 'flat' ? 0 : edges.bottom === 'tab' ? knob : -knob
-  const leftDx = edges.left === 'flat' ? 0 : edges.left === 'tab' ? -knob : knob
+  type Side = 'top' | 'right' | 'bottom' | 'left'
+  type Cmd =
+    | { type: 'L'; x: number; y: number }
+    | { type: 'C'; x1: number; y1: number; x2: number; y2: number; x: number; y: number }
 
-  const p: string[] = []
-  p.push(`M 0 0`)
-
-  if (edges.top === 'flat') {
-    p.push(`L ${size} 0`)
-  } else {
-    p.push(`L ${a} 0`)
-    p.push(`C ${a + 5} 0, ${a + 7} ${topDy}, 50 ${topDy}`)
-    p.push(`C ${b - 7} ${topDy}, ${b - 5} 0, ${b} 0`)
-    p.push(`L ${size} 0`)
+  const mapPoint = (side: Side, u: number, v: number) => {
+    if (side === 'top') return { x: u, y: -v }
+    if (side === 'right') return { x: size + v, y: u }
+    if (side === 'bottom') return { x: size - u, y: size + v }
+    return { x: -v, y: size - u }
   }
 
-  if (edges.right === 'flat') {
-    p.push(`L ${size} ${size}`)
-  } else {
-    p.push(`L ${size} ${a}`)
-    p.push(`C ${size} ${a + 5}, ${size + rightDx} ${a + 7}, ${size + rightDx} 50`)
-    p.push(`C ${size + rightDx} ${b - 7}, ${size} ${b - 5}, ${size} ${b}`)
-    p.push(`L ${size} ${size}`)
+  const edgeCmds = (edge: EdgeType): Cmd[] => {
+    if (edge === 'flat') return [{ type: 'L', x: size, y: 0 }]
+    const sign = edge === 'tab' ? 1 : -1
+    const vShoulder = sign * shoulder
+    const vDepth = sign * depth
+    return [
+      { type: 'L', x: inset1, y: 0 },
+      { type: 'C', x1: inset1 + handle, y1: 0, x2: inset1 + handle, y2: vShoulder, x: inset2, y: vShoulder },
+      { type: 'C', x1: inset2 + handle, y1: vShoulder, x2: inset2 + handle, y2: vDepth, x: 50, y: vDepth },
+      { type: 'C', x1: inset3 - handle, y1: vDepth, x2: inset3 - handle, y2: vShoulder, x: inset3, y: vShoulder },
+      { type: 'C', x1: inset4 - handle, y1: vShoulder, x2: inset4 - handle, y2: 0, x: inset4, y: 0 },
+      { type: 'L', x: size, y: 0 },
+    ]
   }
 
-  if (edges.bottom === 'flat') {
-    p.push(`L 0 ${size}`)
-  } else {
-    p.push(`L ${b} ${size}`)
-    p.push(`C ${b - 5} ${size}, ${b - 7} ${size + bottomDy}, 50 ${size + bottomDy}`)
-    p.push(`C ${a + 7} ${size + bottomDy}, ${a + 5} ${size}, ${a} ${size}`)
-    p.push(`L 0 ${size}`)
+  const pushEdge = (p: string[], side: Side, edge: EdgeType) => {
+    for (const cmd of edgeCmds(edge)) {
+      if (cmd.type === 'L') {
+        const pt = mapPoint(side, cmd.x, cmd.y)
+        p.push(`L ${pt.x} ${pt.y}`)
+      } else {
+        const c1 = mapPoint(side, cmd.x1, cmd.y1)
+        const c2 = mapPoint(side, cmd.x2, cmd.y2)
+        const pt = mapPoint(side, cmd.x, cmd.y)
+        p.push(`C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${pt.x} ${pt.y}`)
+      }
+    }
   }
 
-  if (edges.left === 'flat') {
-    p.push(`Z`)
-  } else {
-    p.push(`L 0 ${b}`)
-    p.push(`C 0 ${b - 5}, ${leftDx} ${b - 7}, ${leftDx} 50`)
-    p.push(`C ${leftDx} ${a + 7}, 0 ${a + 5}, 0 ${a}`)
-    p.push(`Z`)
-  }
-
+  const p: string[] = [`M 0 0`]
+  pushEdge(p, 'top', edges.top)
+  pushEdge(p, 'right', edges.right)
+  pushEdge(p, 'bottom', edges.bottom)
+  pushEdge(p, 'left', edges.left)
+  p.push('Z')
   return p.join(' ')
 }
 
@@ -578,7 +585,7 @@ function App() {
     return (
       <svg className="pieceSvg" viewBox="0 0 100 100" aria-hidden="true">
         <defs>
-          <clipPath id={clipId}>
+          <clipPath id={clipId} clipPathUnits="userSpaceOnUse">
             <path d={path} />
           </clipPath>
         </defs>

@@ -126,6 +126,10 @@
   background: transparent !important;
 }
 
+.app[data-piece-shape='interlock'] .pieceSvg {
+  overflow: visible;
+}
+
 .app[data-piece-shape='interlock'] .slot {
   overflow: visible;
 }
