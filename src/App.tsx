@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { DEFAULT_IMAGES, type ImageOption } from './defaultImages'
-import { createPuzzle, gridSizeForDifficulty, isComplete, type Difficulty, type Piece, type PuzzleState } from './puzzle'
+import { createPuzzle, gridSizeForDifficulty, isComplete, type Difficulty, type EdgeType, type Piece, type PuzzleState } from './puzzle'
 
 type FireworkParticle = {
   x: number
@@ -14,6 +14,65 @@ type FireworkParticle = {
   color: string
   prevX: number
   prevY: number
+}
+
+type PieceShape = 'square' | 'interlock'
+
+function pieceShapeLabel(shape: PieceShape) {
+  return shape === 'square' ? '方形' : '互锁'
+}
+
+function jigsawPath(edges: { top: EdgeType; right: EdgeType; bottom: EdgeType; left: EdgeType }) {
+  const size = 100
+  const a = 35
+  const b = 65
+  const knob = 18
+
+  const topDy = edges.top === 'flat' ? 0 : edges.top === 'tab' ? -knob : knob
+  const rightDx = edges.right === 'flat' ? 0 : edges.right === 'tab' ? knob : -knob
+  const bottomDy = edges.bottom === 'flat' ? 0 : edges.bottom === 'tab' ? knob : -knob
+  const leftDx = edges.left === 'flat' ? 0 : edges.left === 'tab' ? -knob : knob
+
+  const p: string[] = []
+  p.push(`M 0 0`)
+
+  if (edges.top === 'flat') {
+    p.push(`L ${size} 0`)
+  } else {
+    p.push(`L ${a} 0`)
+    p.push(`C ${a + 5} 0, ${a + 7} ${topDy}, 50 ${topDy}`)
+    p.push(`C ${b - 7} ${topDy}, ${b - 5} 0, ${b} 0`)
+    p.push(`L ${size} 0`)
+  }
+
+  if (edges.right === 'flat') {
+    p.push(`L ${size} ${size}`)
+  } else {
+    p.push(`L ${size} ${a}`)
+    p.push(`C ${size} ${a + 5}, ${size + rightDx} ${a + 7}, ${size + rightDx} 50`)
+    p.push(`C ${size + rightDx} ${b - 7}, ${size} ${b - 5}, ${size} ${b}`)
+    p.push(`L ${size} ${size}`)
+  }
+
+  if (edges.bottom === 'flat') {
+    p.push(`L 0 ${size}`)
+  } else {
+    p.push(`L ${b} ${size}`)
+    p.push(`C ${b - 5} ${size}, ${b - 7} ${size + bottomDy}, 50 ${size + bottomDy}`)
+    p.push(`C ${a + 7} ${size + bottomDy}, ${a + 5} ${size}, ${a} ${size}`)
+    p.push(`L 0 ${size}`)
+  }
+
+  if (edges.left === 'flat') {
+    p.push(`Z`)
+  } else {
+    p.push(`L 0 ${b}`)
+    p.push(`C 0 ${b - 5}, ${leftDx} ${b - 7}, ${leftDx} 50`)
+    p.push(`C ${leftDx} ${a + 7}, 0 ${a + 5}, 0 ${a}`)
+    p.push(`Z`)
+  }
+
+  return p.join(' ')
 }
 
 function App() {
@@ -41,6 +100,12 @@ function App() {
   const [previewOpen, setPreviewOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const toastTimerRef = useRef<number | null>(null)
+
+  const [pieceShape, setPieceShape] = useState<PieceShape>(() => {
+    const raw = localStorage.getItem('jigsaw:pieceShape')
+    if (raw === 'interlock' || raw === 'square') return raw
+    return 'square'
+  })
 
   const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
     const raw = localStorage.getItem('jigsaw:sound')
@@ -305,6 +370,10 @@ function App() {
   }, [difficulty])
 
   useEffect(() => {
+    localStorage.setItem('jigsaw:pieceShape', pieceShape)
+  }, [pieceShape])
+
+  useEffect(() => {
     localStorage.setItem('jigsaw:sound', soundEnabled ? '1' : '0')
   }, [soundEnabled])
 
@@ -502,9 +571,36 @@ function App() {
 
   const boardCells = puzzle?.board ?? Array.from({ length: n * n }, () => null)
 
+  const renderPieceFace = (piece: Piece) => {
+    if (pieceShape === 'square') return null
+    const clipId = `clip_${piece.id}`
+    const path = jigsawPath(piece.edges)
+    return (
+      <svg className="pieceSvg" viewBox="0 0 100 100" aria-hidden="true">
+        <defs>
+          <clipPath id={clipId}>
+            <path d={path} />
+          </clipPath>
+        </defs>
+        <g clipPath={`url(#${clipId})`}>
+          <image
+            href={imageSrc}
+            x={-piece.col * 100}
+            y={-piece.row * 100}
+            width={n * 100}
+            height={n * 100}
+            preserveAspectRatio="none"
+          />
+        </g>
+        <path d={path} fill="none" stroke="rgba(255, 77, 157, 0.55)" strokeWidth={1.2} />
+      </svg>
+    )
+  }
+
   return (
     <div
       className="app"
+      data-piece-shape={pieceShape}
       onPointerDown={() => {
         void ensureAudio()
       }}
@@ -555,7 +651,7 @@ function App() {
                         className={`piece ${puzzle?.fixed[idx] ? 'fixed' : 'movable'} ${
                           hintPieceId === cell.id ? 'hint' : ''
                         }`}
-                        style={pieceStyle(cell)}
+                        style={pieceShape === 'square' ? pieceStyle(cell) : undefined}
                         role={!puzzle?.fixed[idx] ? 'button' : undefined}
                         tabIndex={!puzzle?.fixed[idx] ? 0 : undefined}
                         aria-label={!puzzle?.fixed[idx] ? '可移动拼图块' : '固定拼图块'}
@@ -579,7 +675,9 @@ function App() {
                             height: rect.height,
                           })
                         }}
-                      />
+                      >
+                        {renderPieceFace(cell)}
+                      </div>
                     ) : (
                       <div className="emptyMark" />
                     )}
@@ -664,6 +762,27 @@ function App() {
 
             <div className="row">
               <label className="field">
+                <div className="fieldLabel">拼块形状</div>
+                <div className="seg">
+                  {(['square', 'interlock'] as const).map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      className={pieceShape === v ? 'segOn' : 'segOff'}
+                      onClick={() => {
+                        setPieceShape(v)
+                        showToast(`已切换为${pieceShapeLabel(v)}拼块`)
+                      }}
+                    >
+                      {pieceShapeLabel(v)}
+                    </button>
+                  ))}
+                </div>
+              </label>
+            </div>
+
+            <div className="row">
+              <label className="field">
                 <div className="fieldLabel">本地相册</div>
                 <input
                   type="file"
@@ -708,7 +827,7 @@ function App() {
                   <div
                     key={piece.id}
                     className={`trayPiece ${hinting ? 'hint' : ''} ${isDragging ? 'dragging' : ''}`}
-                    style={pieceStyle(piece)}
+                    style={pieceShape === 'square' ? pieceStyle(piece) : undefined}
                     role="button"
                     tabIndex={0}
                     aria-label="拖动拼图块"
@@ -731,7 +850,9 @@ function App() {
                         height: rect.height,
                       })
                     }}
-                  />
+                  >
+                    {renderPieceFace(piece)}
+                  </div>
                 )
               })}
               {puzzle && puzzle.tray.length === 0 && <div className="trayEmpty">就差最后检查啦～</div>}
@@ -751,7 +872,9 @@ function App() {
           }}
           aria-hidden="true"
         >
-          <div className="dragPiece" style={pieceStyle(drag.piece)} />
+          <div className="dragPiece" style={pieceShape === 'square' ? pieceStyle(drag.piece) : undefined}>
+            {renderPieceFace(drag.piece)}
+          </div>
         </div>
       )}
 

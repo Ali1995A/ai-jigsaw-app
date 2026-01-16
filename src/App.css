@@ -116,6 +116,31 @@
   height: 100%;
 }
 
+.pieceSvg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.app[data-piece-shape='interlock'] .piece {
+  background: transparent !important;
+}
+
+.app[data-piece-shape='interlock'] .slot {
+  overflow: visible;
+}
+
+.app[data-piece-shape='interlock'] .trayPiece {
+  overflow: visible;
+  background: transparent;
+  border-color: rgba(255, 77, 157, 0.14);
+}
+
+.app[data-piece-shape='interlock'] .dragPiece {
+  overflow: visible;
+  background: transparent;
+}
+
 .piece.fixed {
   filter: saturate(0.98);
 }
