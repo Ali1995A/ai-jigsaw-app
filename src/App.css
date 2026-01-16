@@ -165,6 +165,35 @@
   box-shadow: 0 18px 48px rgba(255, 77, 157, 0.18);
 }
 
+.doneCard.celebrate {
+  animation: celebratePop 420ms ease-out both;
+  background:
+    radial-gradient(240px 180px at 10% 0%, rgba(255, 77, 157, 0.18), transparent 60%),
+    radial-gradient(240px 180px at 90% 10%, rgba(168, 85, 247, 0.16), transparent 62%),
+    rgba(255, 255, 255, 0.82);
+}
+
+@keyframes celebratePop {
+  0% {
+    transform: translateY(8px) scale(0.98);
+    filter: saturate(0.98);
+  }
+  60% {
+    transform: translateY(-2px) scale(1.02);
+    filter: saturate(1.06);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    filter: saturate(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .doneCard.celebrate {
+    animation: none;
+  }
+}
+
 .doneTitle {
   font-size: 20px;
   font-weight: 800;
@@ -400,4 +429,13 @@
   backdrop-filter: blur(10px);
   font-size: 14px;
   box-shadow: 0 18px 50px rgba(255, 77, 157, 0.18);
+}
+
+.fxCanvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 85;
 }

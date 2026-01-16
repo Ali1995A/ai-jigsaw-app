@@ -1,7 +1,20 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { DEFAULT_IMAGES, type ImageOption } from './defaultImages'
 import { createPuzzle, gridSizeForDifficulty, isComplete, type Difficulty, type Piece, type PuzzleState } from './puzzle'
+
+type FireworkParticle = {
+  x: number
+  y: number
+  vx: number
+  vy: number
+  life: number
+  ttl: number
+  size: number
+  color: string
+  prevX: number
+  prevY: number
+}
 
 function App() {
   const [difficulty, setDifficulty] = useState<Difficulty>(() => {
@@ -29,6 +42,22 @@ function App() {
   const [toast, setToast] = useState<string | null>(null)
   const toastTimerRef = useRef<number | null>(null)
 
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
+    const raw = localStorage.getItem('jigsaw:sound')
+    if (raw === null) return true
+    return raw === '1' || raw === 'true'
+  })
+
+  const [celebrating, setCelebrating] = useState(false)
+  const fxCanvasRef = useRef<HTMLCanvasElement | null>(null)
+  const fxRafRef = useRef<number | null>(null)
+  const fxStopTimerRef = useRef<number | null>(null)
+  const fxParticlesRef = useRef<FireworkParticle[]>([])
+  const fxLastTsRef = useRef<number>(0)
+
+  const audioCtxRef = useRef<AudioContext | null>(null)
+  const audioNoiseRef = useRef<AudioBuffer | null>(null)
+
   const [hintSlot, setHintSlot] = useState<number | null>(null)
   const [hintPieceId, setHintPieceId] = useState<string | null>(null)
   const hintTimerRef = useRef<number | null>(null)
@@ -52,11 +81,205 @@ function App() {
   const remaining = puzzle?.tray.length ?? 0
   const elapsedSeconds = startedAt ? Math.floor((now - startedAt) / 1000) : 0
 
-  function showToast(message: string) {
+  const prefersReducedMotion = useCallback(() => {
+    return window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false
+  }, [])
+
+  const showToast = useCallback((message: string) => {
     setToast(message)
     if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current)
     toastTimerRef.current = window.setTimeout(() => setToast(null), 1500)
-  }
+  }, [])
+
+  const ensureAudio = useCallback(async () => {
+    try {
+      if (!audioCtxRef.current) {
+        const AudioContextCtor =
+          window.AudioContext ?? ((window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext ?? null)
+        if (!AudioContextCtor) return
+        audioCtxRef.current = new AudioContextCtor()
+      }
+      if (audioCtxRef.current.state === 'suspended') await audioCtxRef.current.resume()
+      if (!audioNoiseRef.current) {
+        const sampleRate = audioCtxRef.current.sampleRate
+        const durationSeconds = 0.18
+        const frameCount = Math.floor(sampleRate * durationSeconds)
+        const buffer = audioCtxRef.current.createBuffer(1, frameCount, sampleRate)
+        const data = buffer.getChannelData(0)
+        for (let i = 0; i < frameCount; i++) data[i] = (Math.random() * 2 - 1) * 0.9
+        audioNoiseRef.current = buffer
+      }
+    } catch {
+      // ignore (autoplay policy or unsupported)
+    }
+  }, [])
+
+  const stopFireworks = useCallback(() => {
+    if (fxRafRef.current) window.cancelAnimationFrame(fxRafRef.current)
+    fxRafRef.current = null
+    if (fxStopTimerRef.current) window.clearTimeout(fxStopTimerRef.current)
+    fxStopTimerRef.current = null
+    fxParticlesRef.current = []
+    const canvas = fxCanvasRef.current
+    const ctx = canvas?.getContext('2d')
+    if (canvas && ctx) ctx.clearRect(0, 0, canvas.width, canvas.height)
+  }, [])
+
+  const resizeFxCanvas = useCallback(() => {
+    const canvas = fxCanvasRef.current
+    if (!canvas) return
+    const dpr = Math.min(2, window.devicePixelRatio || 1)
+    const w = Math.floor(window.innerWidth * dpr)
+    const h = Math.floor(window.innerHeight * dpr)
+    if (canvas.width !== w) canvas.width = w
+    if (canvas.height !== h) canvas.height = h
+  }, [])
+
+  const startFireworks = useCallback(() => {
+    stopFireworks()
+    resizeFxCanvas()
+    const canvas = fxCanvasRef.current
+    const ctx = canvas?.getContext('2d')
+    if (!canvas || !ctx) return
+
+    const dpr = Math.min(2, window.devicePixelRatio || 1)
+    const reduced = prefersReducedMotion()
+    const bursts = reduced ? 3 : 6
+    const perBurst = reduced ? 18 : 36
+    const gravity = 980 * dpr
+
+    const palette = ['#ff4d9d', '#a855f7', '#ff87c7', '#ff5c7a', '#ffd1e6', '#7c3aed']
+
+    const particles: FireworkParticle[] = []
+    for (let b = 0; b < bursts; b++) {
+      const cx = (0.18 + Math.random() * 0.64) * canvas.width
+      const cy = (0.16 + Math.random() * 0.38) * canvas.height
+      const baseSpeed = (reduced ? 520 : 760) * dpr
+      for (let i = 0; i < perBurst; i++) {
+        const a = Math.random() * Math.PI * 2
+        const speed = baseSpeed * (0.22 + Math.random() * 0.78)
+        const vx = Math.cos(a) * speed
+        const vy = Math.sin(a) * speed - (240 + Math.random() * 520) * dpr
+        const ttl = (reduced ? 0.95 : 1.35) + Math.random() * 0.55
+        particles.push({
+          x: cx,
+          y: cy,
+          vx,
+          vy,
+          life: ttl,
+          ttl,
+          size: (1.6 + Math.random() * 2.6) * dpr,
+          color: palette[(Math.random() * palette.length) | 0],
+          prevX: cx,
+          prevY: cy,
+        })
+      }
+    }
+
+    fxParticlesRef.current = particles
+    fxLastTsRef.current = performance.now()
+
+    const tick = (ts: number) => {
+      const last = fxLastTsRef.current || ts
+      const dt = Math.min(0.033, (ts - last) / 1000)
+      fxLastTsRef.current = ts
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      ctx.globalCompositeOperation = 'lighter'
+
+      const next: FireworkParticle[] = []
+      for (const p of fxParticlesRef.current) {
+        const life = p.life - dt
+        if (life <= 0) continue
+
+        const drag = Math.pow(0.12, dt)
+        const vx = p.vx * drag
+        const vy = p.vy * drag + gravity * dt
+        const x = p.x + vx * dt
+        const y = p.y + vy * dt
+
+        const t = Math.max(0, life / p.ttl)
+        const alpha = Math.min(1, t * 1.15)
+
+        ctx.strokeStyle = p.color
+        ctx.globalAlpha = Math.max(0, alpha * 0.55)
+        ctx.lineWidth = p.size * 0.9
+        ctx.beginPath()
+        ctx.moveTo(p.prevX, p.prevY)
+        ctx.lineTo(x, y)
+        ctx.stroke()
+
+        ctx.fillStyle = p.color
+        ctx.globalAlpha = alpha
+        ctx.beginPath()
+        ctx.arc(x, y, p.size, 0, Math.PI * 2)
+        ctx.fill()
+
+        next.push({ ...p, x, y, vx, vy, life, prevX: x, prevY: y })
+      }
+
+      fxParticlesRef.current = next
+      if (next.length > 0) fxRafRef.current = window.requestAnimationFrame(tick)
+    }
+
+    fxRafRef.current = window.requestAnimationFrame(tick)
+    fxStopTimerRef.current = window.setTimeout(() => stopFireworks(), reduced ? 1400 : 2200)
+  }, [prefersReducedMotion, resizeFxCanvas, stopFireworks])
+
+  const playCelebrationSound = useCallback(() => {
+    if (!soundEnabled) return
+    const ctx = audioCtxRef.current
+    if (!ctx || ctx.state !== 'running') return
+    const noise = audioNoiseRef.current
+    if (!noise) return
+
+    const now = ctx.currentTime + 0.02
+    const master = ctx.createGain()
+    master.gain.value = 0.55
+    master.connect(ctx.destination)
+
+    const pop = (t: number, pitch: number) => {
+      const osc = ctx.createOscillator()
+      const g = ctx.createGain()
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(pitch, t)
+      osc.frequency.exponentialRampToValueAtTime(Math.max(60, pitch * 0.22), t + 0.18)
+      g.gain.setValueAtTime(0.0001, t)
+      g.gain.exponentialRampToValueAtTime(0.22, t + 0.01)
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22)
+      osc.connect(g)
+      g.connect(master)
+      osc.start(t)
+      osc.stop(t + 0.24)
+    }
+
+    const sparkle = (t: number) => {
+      const src = ctx.createBufferSource()
+      src.buffer = noise
+      const hp = ctx.createBiquadFilter()
+      hp.type = 'highpass'
+      hp.frequency.value = 1800
+      const g = ctx.createGain()
+      g.gain.setValueAtTime(0.0001, t)
+      g.gain.exponentialRampToValueAtTime(0.16, t + 0.01)
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.14)
+      src.connect(hp)
+      hp.connect(g)
+      g.connect(master)
+      src.start(t)
+      src.stop(t + 0.16)
+    }
+
+    pop(now, 210)
+    sparkle(now + 0.02)
+    pop(now + 0.22, 170)
+    sparkle(now + 0.26)
+    pop(now + 0.44, 240)
+    sparkle(now + 0.47)
+
+    master.gain.setValueAtTime(0.55, now)
+    master.gain.exponentialRampToValueAtTime(0.0001, now + 1.0)
+  }, [soundEnabled])
 
   function clearHintSoon() {
     if (hintTimerRef.current) window.clearTimeout(hintTimerRef.current)
@@ -73,11 +296,17 @@ function App() {
     setStartedAt(Date.now())
     setHintSlot(null)
     setHintPieceId(null)
+    setCelebrating(false)
+    stopFireworks()
   }
 
   useEffect(() => {
     localStorage.setItem('jigsaw:difficulty', String(difficulty))
   }, [difficulty])
+
+  useEffect(() => {
+    localStorage.setItem('jigsaw:sound', soundEnabled ? '1' : '0')
+  }, [soundEnabled])
 
   useEffect(() => {
     if (!customImageUrl) localStorage.setItem('jigsaw:imageSrc', selected.src)
@@ -107,6 +336,12 @@ function App() {
     const id = window.setInterval(() => setNow(Date.now()), 1000)
     return () => window.clearInterval(id)
   }, [puzzle, completed, startedAt])
+
+  useEffect(() => {
+    const onResize = () => resizeFxCanvas()
+    window.addEventListener('resize', onResize, { passive: true })
+    return () => window.removeEventListener('resize', onResize)
+  }, [resizeFxCanvas])
 
   useEffect(() => {
     if (!drag) return
@@ -197,19 +432,30 @@ function App() {
       window.removeEventListener('pointerup', onUp)
       window.removeEventListener('pointercancel', onUp)
     }
-  }, [drag, puzzle])
+  }, [drag, puzzle, showToast])
 
   useEffect(() => {
     if (!completed) return
-    showToast('完成啦！')
-  }, [completed])
+    setToast('完成啦！')
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current)
+    toastTimerRef.current = window.setTimeout(() => setToast(null), 1500)
+    setCelebrating(true)
+    startFireworks()
+    playCelebrationSound()
+  }, [completed, playCelebrationSound, startFireworks])
 
   useEffect(() => {
     return () => {
       if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current)
       if (hintTimerRef.current) window.clearTimeout(hintTimerRef.current)
+      stopFireworks()
+      try {
+        audioCtxRef.current?.close?.()
+      } catch {
+        // ignore
+      }
     }
-  }, [])
+  }, [stopFireworks])
 
   function onPickLocalFile(file: File | null) {
     if (!file) return
@@ -257,7 +503,12 @@ function App() {
   const boardCells = puzzle?.board ?? Array.from({ length: n * n }, () => null)
 
   return (
-    <div className="app">
+    <div
+      className="app"
+      onPointerDown={() => {
+        void ensureAudio()
+      }}
+    >
       <header className="topbar">
         <div className="brand">
           <div className="title">智能拼图</div>
@@ -344,7 +595,7 @@ function App() {
           )}
           {completed && (
             <div className="boardOverlay done" role="status">
-              <div className="doneCard">
+              <div className={`doneCard ${celebrating ? 'celebrate' : ''}`}>
                 <div className="doneTitle">完成啦！</div>
                 <div className="doneMeta">
                   步数 {moves} · 用时 {elapsedSeconds}s
@@ -378,6 +629,35 @@ function App() {
                       {v}
                     </button>
                   ))}
+                </div>
+              </label>
+            </div>
+
+            <div className="row">
+              <label className="field">
+                <div className="fieldLabel">声音</div>
+                <div className="seg">
+                  <button
+                    type="button"
+                    className={soundEnabled ? 'segOn' : 'segOff'}
+                    onClick={() => {
+                      void ensureAudio()
+                      setSoundEnabled(true)
+                      showToast('声音已开启')
+                    }}
+                  >
+                    开
+                  </button>
+                  <button
+                    type="button"
+                    className={!soundEnabled ? 'segOn' : 'segOff'}
+                    onClick={() => {
+                      setSoundEnabled(false)
+                      showToast('声音已关闭')
+                    }}
+                  >
+                    关
+                  </button>
                 </div>
               </label>
             </div>
@@ -491,6 +771,7 @@ function App() {
         </div>
       )}
 
+      <canvas className="fxCanvas" ref={fxCanvasRef} aria-hidden="true" />
       {toast && <div className="toast">{toast}</div>}
     </div>
   )
