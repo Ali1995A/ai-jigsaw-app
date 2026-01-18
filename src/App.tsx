@@ -98,6 +98,7 @@ function App() {
 
   const [isImageReady, setIsImageReady] = useState(false)
   const [imageError, setImageError] = useState<string | null>(null)
+  const autoFallbackRef = useRef<string | null>(null)
 
   const [puzzle, setPuzzle] = useState<PuzzleState | null>(null)
   const [moves, setMoves] = useState(0)
@@ -393,13 +394,26 @@ function App() {
     setImageError(null)
     const img = new Image()
     img.onload = () => setIsImageReady(true)
-    img.onerror = () => setImageError('图片加载失败（可能是网络或跨域限制）')
+    img.onerror = () => {
+      const fallback = DEFAULT_IMAGES[0]
+      if (imageSrc !== fallback.src && autoFallbackRef.current !== imageSrc) {
+        autoFallbackRef.current = imageSrc
+        setCustomImageUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev)
+          return null
+        })
+        setSelected(fallback)
+        showToast('外链图片加载失败，已切换到内置图片')
+        return
+      }
+      setImageError('图片加载失败（可能是网络或跨域限制）')
+    }
     img.src = imageSrc
     return () => {
       img.onload = null
       img.onerror = null
     }
-  }, [imageSrc])
+  }, [imageSrc, showToast])
 
   useEffect(() => {
     if (!isImageReady) return
@@ -592,6 +606,7 @@ function App() {
         <g clipPath={`url(#${clipId})`}>
           <image
             href={imageSrc}
+            xlinkHref={imageSrc}
             x={-piece.col * 100}
             y={-piece.row * 100}
             width={n * 100}

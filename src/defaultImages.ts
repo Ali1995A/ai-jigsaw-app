@@ -4,7 +4,65 @@ export type ImageOption = {
   label: string
 }
 
+function svgDataUri(svg: string): string {
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+}
+
 export const DEFAULT_IMAGES: ImageOption[] = [
+  {
+    id: 'builtin-1',
+    src: svgDataUri(`<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff4d9d"/>
+      <stop offset="0.5" stop-color="#a855f7"/>
+      <stop offset="1" stop-color="#22c55e"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="35%" cy="30%" r="60%">
+      <stop offset="0" stop-color="rgba(255,255,255,0.85)"/>
+      <stop offset="1" stop-color="rgba(255,255,255,0)"/>
+    </radialGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <circle cx="360" cy="300" r="420" fill="url(#glow)"/>
+  <g opacity="0.9">
+    <path d="M120 760 C 260 620, 420 900, 560 760 S 860 620, 940 760" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="22" stroke-linecap="round"/>
+    <path d="M120 860 C 280 740, 440 980, 600 860 S 860 740, 940 860" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="14" stroke-linecap="round"/>
+  </g>
+  <g opacity="0.9">
+    <rect x="90" y="110" width="220" height="220" rx="38" fill="rgba(255,255,255,0.22)"/>
+    <rect x="714" y="140" width="220" height="220" rx="38" fill="rgba(255,255,255,0.18)"/>
+    <rect x="660" y="650" width="280" height="260" rx="44" fill="rgba(0,0,0,0.10)"/>
+  </g>
+</svg>`),
+    label: '内置渐变 1',
+  },
+  {
+    id: 'builtin-2',
+    src: svgDataUri(`<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0ea5e9"/>
+      <stop offset="0.55" stop-color="#22c55e"/>
+      <stop offset="1" stop-color="#f59e0b"/>
+    </linearGradient>
+    <pattern id="p" width="96" height="96" patternUnits="userSpaceOnUse" patternTransform="rotate(12)">
+      <rect width="96" height="96" fill="rgba(255,255,255,0.0)"/>
+      <circle cx="22" cy="24" r="10" fill="rgba(255,255,255,0.28)"/>
+      <circle cx="72" cy="64" r="14" fill="rgba(0,0,0,0.12)"/>
+      <path d="M10 74 L 44 40 L 78 74" fill="none" stroke="rgba(255,255,255,0.28)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+    </pattern>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#g1)"/>
+  <rect width="1024" height="1024" fill="url(#p)"/>
+  <g opacity="0.9">
+    <circle cx="780" cy="260" r="170" fill="rgba(255,255,255,0.18)"/>
+    <circle cx="300" cy="770" r="240" fill="rgba(255,255,255,0.14)"/>
+    <path d="M160 230 C 260 140, 420 140, 520 230 S 780 320, 900 240" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="20" stroke-linecap="round"/>
+  </g>
+</svg>`),
+    label: '内置图案 2',
+  },
   {
     id: 'image-1',
     src: 'https://ac35844.webp.li/image%20(1).jpg',
