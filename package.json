@@ -8,6 +8,8 @@
     "node": ">=18"
   },
   "scripts": {
+    "clean": "node scripts/clean.mjs",
+    "fresh": "pnpm clean && pnpm install",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",

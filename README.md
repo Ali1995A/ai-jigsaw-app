@@ -16,6 +16,27 @@ pnpm build
 pnpm preview
 ```
 
+## 节省磁盘空间（清理依赖/产物）
+
+当仓库短时间不更新、想释放磁盘空间时，可以删除可再生成的依赖与构建产物（不会改动源码与锁文件）：
+
+```bash
+pnpm clean
+```
+
+需要恢复运行时：
+
+```bash
+pnpm install
+pnpm dev
+```
+
+也可以一步完成：
+
+```bash
+pnpm fresh
+```
+
 ## 部署到 Vercel
 
 - Framework: `Vite`

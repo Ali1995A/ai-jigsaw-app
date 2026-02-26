@@ -3,6 +3,8 @@ import './App.css'
 import { DEFAULT_IMAGES, type ImageOption } from './defaultImages'
 import { createPuzzle, gridSizeForDifficulty, isComplete, type Difficulty, type EdgeType, type Piece, type PuzzleState } from './puzzle'
 
+const BGM_SRC = '/music/xiaopengyoudekuai_le.mp3'
+
 type FireworkParticle = {
   x: number
   y: number
@@ -120,6 +122,11 @@ function App() {
     if (raw === null) return true
     return raw === '1' || raw === 'true'
   })
+  const [bgmEnabled, setBgmEnabled] = useState<boolean>(() => {
+    const raw = localStorage.getItem('jigsaw:bgm')
+    if (raw === null) return true
+    return raw === '1' || raw === 'true'
+  })
 
   const [celebrating, setCelebrating] = useState(false)
   const fxCanvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -130,6 +137,7 @@ function App() {
 
   const audioCtxRef = useRef<AudioContext | null>(null)
   const audioNoiseRef = useRef<AudioBuffer | null>(null)
+  const bgmRef = useRef<HTMLAudioElement | null>(null)
 
   const [hintSlot, setHintSlot] = useState<number | null>(null)
   const [hintPieceId, setHintPieceId] = useState<string | null>(null)
@@ -354,6 +362,18 @@ function App() {
     master.gain.exponentialRampToValueAtTime(0.0001, now + 1.0)
   }, [soundEnabled])
 
+  const syncBgmPlayback = useCallback(() => {
+    const bgm = bgmRef.current
+    if (!bgm) return
+    if (!bgmEnabled) {
+      bgm.pause()
+      return
+    }
+    void bgm.play().catch(() => {
+      // ignore (autoplay policy, missing file, or unsupported format)
+    })
+  }, [bgmEnabled])
+
   function clearHintSoon() {
     if (hintTimerRef.current) window.clearTimeout(hintTimerRef.current)
     hintTimerRef.current = window.setTimeout(() => {
@@ -384,6 +404,14 @@ function App() {
   useEffect(() => {
     localStorage.setItem('jigsaw:sound', soundEnabled ? '1' : '0')
   }, [soundEnabled])
+
+  useEffect(() => {
+    localStorage.setItem('jigsaw:bgm', bgmEnabled ? '1' : '0')
+  }, [bgmEnabled])
+
+  useEffect(() => {
+    syncBgmPlayback()
+  }, [syncBgmPlayback])
 
   useEffect(() => {
     if (!customImageUrl) localStorage.setItem('jigsaw:imageSrc', selected.src)
@@ -539,6 +567,7 @@ function App() {
       if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current)
       if (hintTimerRef.current) window.clearTimeout(hintTimerRef.current)
       stopFireworks()
+      bgmRef.current?.pause()
       try {
         audioCtxRef.current?.close?.()
       } catch {
@@ -625,6 +654,7 @@ function App() {
       data-piece-shape={pieceShape}
       onPointerDown={() => {
         void ensureAudio()
+        syncBgmPlayback()
       }}
     >
       <header className="topbar">
@@ -784,6 +814,35 @@ function App() {
 
             <div className="row">
               <label className="field">
+                <div className="fieldLabel">背景音乐</div>
+                <div className="seg">
+                  <button
+                    type="button"
+                    className={bgmEnabled ? 'segOn' : 'segOff'}
+                    onClick={() => {
+                      setBgmEnabled(true)
+                      showToast('背景音乐已开启')
+                    }}
+                  >
+                    开
+                  </button>
+                  <button
+                    type="button"
+                    className={!bgmEnabled ? 'segOn' : 'segOff'}
+                    onClick={() => {
+                      setBgmEnabled(false)
+                      showToast('背景音乐已关闭')
+                    }}
+                  >
+                    关
+                  </button>
+                </div>
+                <div className="fieldLabel">曲目：小朋友的快乐</div>
+              </label>
+            </div>
+
+            <div className="row">
+              <label className="field">
                 <div className="fieldLabel">拼块形状</div>
                 <div className="seg">
                   {(['square', 'interlock'] as const).map((v) => (
@@ -917,6 +976,7 @@ function App() {
       )}
 
       <canvas className="fxCanvas" ref={fxCanvasRef} aria-hidden="true" />
+      <audio ref={bgmRef} src={BGM_SRC} preload="auto" loop aria-hidden="true" />
       {toast && <div className="toast">{toast}</div>}
     </div>
   )
