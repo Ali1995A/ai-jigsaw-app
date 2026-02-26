@@ -3,7 +3,20 @@ import './App.css'
 import { DEFAULT_IMAGES, type ImageOption } from './defaultImages'
 import { createPuzzle, gridSizeForDifficulty, isComplete, type Difficulty, type EdgeType, type Piece, type PuzzleState } from './puzzle'
 
-const BGM_SRC = '/music/xiaopengyoudekuai_le.mp3'
+const BGM_TRACKS = {
+  xiaopengyou: {
+    id: 'xiaopengyou',
+    label: '小朋友的快乐',
+    src: '/music/xiaopengyoudekuai_le.mp3',
+  },
+  xiaohuaduo: {
+    id: 'xiaohuaduo',
+    label: '小花朵（00:11-01:51）',
+    src: '/music/xiaohuaduo_clip.mp3',
+  },
+} as const
+
+type BgmTrackId = keyof typeof BGM_TRACKS
 
 type FireworkParticle = {
   x: number
@@ -126,6 +139,11 @@ function App() {
     const raw = localStorage.getItem('jigsaw:bgm')
     if (raw === null) return true
     return raw === '1' || raw === 'true'
+  })
+  const [bgmTrackId, setBgmTrackId] = useState<BgmTrackId>(() => {
+    const raw = localStorage.getItem('jigsaw:bgmTrack')
+    if (raw === 'xiaopengyou' || raw === 'xiaohuaduo') return raw
+    return 'xiaopengyou'
   })
 
   const [celebrating, setCelebrating] = useState(false)
@@ -365,6 +383,10 @@ function App() {
   const syncBgmPlayback = useCallback(() => {
     const bgm = bgmRef.current
     if (!bgm) return
+    if (bgm.src !== new URL(currentBgm.src, window.location.href).toString()) {
+      bgm.src = currentBgm.src
+      bgm.load()
+    }
     if (!bgmEnabled) {
       bgm.pause()
       return
@@ -372,7 +394,7 @@ function App() {
     void bgm.play().catch(() => {
       // ignore (autoplay policy, missing file, or unsupported format)
     })
-  }, [bgmEnabled])
+  }, [bgmEnabled, currentBgm.src])
 
   function clearHintSoon() {
     if (hintTimerRef.current) window.clearTimeout(hintTimerRef.current)
@@ -408,6 +430,10 @@ function App() {
   useEffect(() => {
     localStorage.setItem('jigsaw:bgm', bgmEnabled ? '1' : '0')
   }, [bgmEnabled])
+
+  useEffect(() => {
+    localStorage.setItem('jigsaw:bgmTrack', bgmTrackId)
+  }, [bgmTrackId])
 
   useEffect(() => {
     syncBgmPlayback()
@@ -837,7 +863,22 @@ function App() {
                     关
                   </button>
                 </div>
-                <div className="fieldLabel">曲目：小朋友的快乐</div>
+                <div className="fieldLabel">曲目</div>
+                <div className="seg">
+                  {(Object.values(BGM_TRACKS) as Array<(typeof BGM_TRACKS)[BgmTrackId]>).map((track) => (
+                    <button
+                      key={track.id}
+                      type="button"
+                      className={bgmTrackId === track.id ? 'segOn' : 'segOff'}
+                      onClick={() => {
+                        setBgmTrackId(track.id)
+                        showToast(`已切换：${track.label}`)
+                      }}
+                    >
+                      {track.label}
+                    </button>
+                  ))}
+                </div>
               </label>
             </div>
 
@@ -976,10 +1017,11 @@ function App() {
       )}
 
       <canvas className="fxCanvas" ref={fxCanvasRef} aria-hidden="true" />
-      <audio ref={bgmRef} src={BGM_SRC} preload="auto" loop aria-hidden="true" />
+      <audio ref={bgmRef} src={currentBgm.src} preload="auto" loop aria-hidden="true" />
       {toast && <div className="toast">{toast}</div>}
     </div>
   )
 }
 
 export default App
+  const currentBgm = BGM_TRACKS[bgmTrackId]
