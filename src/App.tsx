@@ -175,6 +175,7 @@ function App() {
 
   const n = useMemo(() => gridSizeForDifficulty(difficulty), [difficulty])
   const imageSrc = customImageUrl ?? selected.src
+  const currentBgm = BGM_TRACKS[bgmTrackId]
 
   const completed = useMemo(() => (puzzle ? isComplete(puzzle) : false), [puzzle])
   const remaining = puzzle?.tray.length ?? 0
@@ -1024,4 +1025,3 @@ function App() {
 }
 
 export default App
-  const currentBgm = BGM_TRACKS[bgmTrackId]
